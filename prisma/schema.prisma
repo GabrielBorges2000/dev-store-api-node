@@ -1,0 +1,219 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Roles {
+  USER
+  ADMIN
+  CLIENT
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String?
+  email        String   @unique
+  passwordHash String?  @map("password_hash")
+  avatarUrl    String?  @map("avatar_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tokens   Token[]
+  accounts Account[]
+  store    Store?
+  Order    Order[]
+  address  Address[]
+
+  @@map("users")
+}
+
+enum TokenType {
+  PASSWORD_RECOVER
+}
+
+model Token {
+  id        String    @id @default(uuid())
+  type      TokenType
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("user_id")
+
+  @@map("tokens")
+}
+
+enum AccountProvider {
+  GITHUB
+}
+
+model Account {
+  id                String          @id @default(uuid())
+  provider          AccountProvider
+  providerAccountId String          @unique @map("provider_account_id")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("user_id")
+
+  @@unique([provider, userId])
+  @@map("accounts")
+}
+
+model Store {
+  id        String   @id @unique @default(uuid()) @map("store_id")
+  title     String
+  slug      String   @unique
+  contact   String?
+  imageUrl  String?  @map("image_url")
+  email     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @map("user_id")
+
+  products Product[]
+  orders   Order[]
+
+  @@unique([userId])
+  @@index([slug])
+  @@map("stores")
+}
+
+model Product {
+  id             String   @id @unique @default(uuid()) @map("id")
+  title          String
+  slug           String   @unique
+  price          Float
+  imageUrl       String[] @map("image_url")
+  description    String?
+  promotion      Boolean  @default(false)
+  pricePromotion Float?   @map("price_promotion")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  store   Store  @relation(fields: [storeId], references: [id])
+  storeId String @map("store_id")
+
+  category     Category @relation(fields: [categoriesId], references: [id])
+  categoriesId String   @map("category_id")
+
+  sizes         Size[]
+  tags          Tag[]
+  productOrders ProductOrder[]
+
+  @@unique([storeId, categoriesId, slug])
+  @@index([slug])
+  @@map("products")
+}
+
+model Size {
+  id   String @id @default(uuid())
+  size String
+
+  product   Product? @relation(fields: [productId], references: [id])
+  productId String?  @map("product_id")
+
+  @@map("sizes")
+}
+
+model Tag {
+  id    String @id @default(uuid())
+  title String
+
+  product   Product? @relation(fields: [productId], references: [id])
+  productId String?  @map("product_id")
+
+  @@map("tags")
+}
+
+model Category {
+  id    String @id @default(uuid())
+  title String
+
+  product Product[]
+
+  @@map("categories")
+}
+
+enum OrderState {
+  AWAITING_PAYMENT
+  PAYMENT_ACCEPT
+  PAYMENT_REJECTED
+  IN_PREPARATION
+  ON_CARRIAGE
+  CONCLUDED
+  CANCELED
+}
+
+enum PaymentMethod {
+  CARD_DEBIT
+  CARD_CREDIT
+  TICKET
+  PIX
+}
+
+model Order {
+  id            String        @id @unique @default(uuid())
+  totalPrice    Float         @map("total_price")
+  paymentMethod PaymentMethod
+  state         OrderState    @default(AWAITING_PAYMENT)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @map("user_id")
+
+  store   Store  @relation(fields: [storeId], references: [id])
+  storeId String @map("store_id")
+
+  produtos  ProductOrder[]
+  address   Address        @relation(fields: [addressId], references: [id])
+  addressId String         @map("anddress_id")
+
+  @@unique([userId, addressId])
+  @@index([id])
+
+  @@map("ordes")
+}
+
+model ProductOrder {
+  id            String        @id @unique @default(uuid())
+  quantity      Int
+  state         OrderState    @default(AWAITING_PAYMENT)
+  paymentMethod PaymentMethod
+
+  order   Order  @relation(fields: [orderId], references: [id])
+  orderId String @map("order_id")
+
+  product   Product @relation(fields: [productId], references: [id])
+  productId String  @map("product_id")
+
+  @@map("products_order")
+}
+
+model Address {
+  id           String   @id @default(uuid())
+  userfullName String   @map("user_full_name")
+  street       String
+  number       String
+  complement   String?
+  city         String
+  state        String
+  postalCode   String   @map("postal_code")
+  country      String
+  phone        String
+  cpf          String
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("user_id")
+
+  orders Order[]
+
+  @@map("address")
+}
